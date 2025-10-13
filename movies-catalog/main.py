@@ -1,4 +1,12 @@
-from fastapi import FastAPI, Request
+from typing import Annotated
+
+from fastapi import (
+    FastAPI,
+    Request,
+    HTTPException,
+    status,
+)
+from fastapi.params import Depends
 
 from schemas.movies_catalog import MoviesCatalog
 
@@ -21,6 +29,22 @@ def read_root(
         "message": f"Hello {name}!",
         "docs:": str(docs_url),
     }
+
+
+def prepare_catalog(
+    movie_id: int,
+) -> MoviesCatalog:
+    movie: MoviesCatalog | None = next(
+        (movie for movie in MOVIES_CATALOG if movie.id == movie_id),
+        None,
+    )
+    if movie:
+        return movie
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Movie not found",
+    )
 
 
 MOVIES_CATALOG = [
@@ -49,3 +73,24 @@ MOVIES_CATALOG = [
         year=2025,
     ),
 ]
+
+
+@app.get(
+    "/catalog",
+    response_model=list[MoviesCatalog],
+)
+def get_catalog():
+    return MOVIES_CATALOG
+
+
+@app.get(
+    "/catalog/{movie_id}",
+    response_model=MoviesCatalog,
+)
+def get_movie_details(
+    movie: Annotated[
+        MoviesCatalog,
+        Depends(prepare_catalog),
+    ],
+) -> MoviesCatalog:
+    return movie
